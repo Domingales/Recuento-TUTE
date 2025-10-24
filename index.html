@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -67,6 +67,12 @@
   }
   .perdidas{
     color:var(--muted);
+    font-size:1.2rem; /* tamaño ajustable del texto */
+  }
+  .perdidas span{
+    font-size:1.4rem;
+    font-weight:bold;
+    color:var(--accent);
   }
   .cuadrados{
     display:flex;
@@ -90,8 +96,8 @@
   <h1>Marcador de Derrotas</h1>
 
   <form id="formConfig">
-    <label>Número de jugadores (2–6):</label>
-    <input type="number" id="numJugadores" min="2" max="6" required>
+    <label>Número de jugadores (3–6):</label>
+    <input type="number" id="numJugadores" min="3" max="6" required>
 
     <div id="nombresContainer"></div>
 
@@ -109,6 +115,36 @@ const nombresContainer = document.getElementById('nombresContainer');
 const marcadorDiv = document.getElementById('marcador');
 let jugadores = [];
 
+// 🎵 Función para reproducir una melodía de 12 notas repetida 3 veces
+function reproducirMelodia() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // Escala alegre (C mayor con 12 notas, incluye octava superior)
+  const notas = [
+    261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88,
+    523.25, 587.33, 659.25, 698.46, 783.99
+  ];
+  const duracion = 0.05; // duración por nota en segundos
+  const repeticiones = 3;
+
+  for (let r = 0; r < repeticiones; r++) {
+    notas.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = "triangle";
+      const inicio = ctx.currentTime + (r * notas.length + i) * duracion;
+      const fin = inicio + duracion;
+      gain.gain.setValueAtTime(0.15, inicio);
+      gain.gain.exponentialRampToValueAtTime(0.001, fin);
+      osc.start(inicio);
+      osc.stop(fin);
+    });
+  }
+}
+
 document.getElementById('numJugadores').addEventListener('input', e=>{
   const n = parseInt(e.target.value)||0;
   nombresContainer.innerHTML='';
@@ -125,13 +161,13 @@ form.addEventListener('submit', e=>{
   const n = parseInt(document.getElementById('numJugadores').value);
   const rondas = parseInt(document.getElementById('numRondas').value);
   const nombres = [...nombresContainer.querySelectorAll('input')].map(i=>i.value.trim());
-  if(nombres.length!==n) return alert('Introduce todos los nombres');
+  if(nombres.length!==n || nombres.some(x=>!x)) return alert('Introduce todos los nombres');
   iniciarPartida(nombres,rondas);
 });
 
 function iniciarPartida(nombres,rondas){
   form.style.display='none';
-  jugadores = nombres.map(n=>({nombre:n,perdidas:0}));
+  jugadores = nombres.map(n=>({nombre:n,perdidas:0,finalizado:false}));
   renderMarcador(rondas);
 }
 
@@ -147,7 +183,7 @@ function renderMarcador(rondas){
     for(let i=0;i<rondas;i++){
       const c = document.createElement('div');
       c.className='cuadro';
-      c.addEventListener('click',()=>marcarDerrota(idx,c,rondas));
+      c.addEventListener('click',()=>alternarCuadro(idx,c,rondas));
       cuadros.appendChild(c);
     }
     div.appendChild(cuadros);
@@ -155,17 +191,43 @@ function renderMarcador(rondas){
   });
 }
 
-function marcarDerrota(idx,cuadro,maxRondas){
+function alternarCuadro(idx,cuadro,maxRondas){
   const jugador = jugadores[idx];
-  if(cuadro.classList.contains('verde')||cuadro.classList.contains('rojo')) return;
-  jugador.perdidas++;
-  cuadro.classList.add('verde');
+  const cont = cuadro.parentElement;
+  const cuadros = cont.querySelectorAll('.cuadro');
+  const todosRojos = [...cuadros].every(c=>c.classList.contains('rojo'));
+
+  // Caso de rectificación tras finalizar (todo rojo)
+  if(todosRojos){
+    jugador.perdidas = Math.max(0, jugador.perdidas - 1);
+    cuadros.forEach(c=>c.classList.remove('rojo','verde'));
+    for(let i=0;i<jugador.perdidas;i++) cuadros[i].classList.add('verde');
+    jugador.finalizado = false;
+    document.getElementById(`p-${idx}`).textContent = jugador.perdidas;
+    return;
+  }
+
+  // Conmutación normal
+  if(cuadro.classList.contains('verde')){
+    cuadro.classList.remove('verde');
+    jugador.perdidas = Math.max(0, jugador.perdidas - 1);
+  } else if(!cuadro.classList.contains('rojo')){
+    cuadro.classList.add('verde');
+    jugador.perdidas++;
+  }
+
   document.getElementById(`p-${idx}`).textContent = jugador.perdidas;
-  if(jugador.perdidas>=maxRondas){
-    // Cambiar todos los cuadros a rojo
-    const cuadros = cuadro.parentElement.querySelectorAll('.cuadro');
-    cuadros.forEach(c=>c.classList.remove('verde'));
-    cuadros.forEach(c=>c.classList.add('rojo'));
+
+  // Si alcanza el límite, pasar a ROJO (finalizado)
+  if(jugador.perdidas >= maxRondas){
+    cuadros.forEach(c=>{ c.classList.remove('verde'); c.classList.add('rojo'); });
+    if(!jugador.finalizado){
+      jugador.finalizado = true;
+      reproducirMelodia(); // 🎶 Suena la melodía (12 notas × 3 ciclos)
+    }
+  } else {
+    cuadros.forEach(c=>c.classList.remove('rojo'));
+    jugador.finalizado = false;
   }
 }
 </script>
