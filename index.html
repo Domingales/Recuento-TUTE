@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Marcador de Derrotas</title>
+<title>Marcador.</title>
 <style>
   :root{
     --bg:#0b0d12;
@@ -96,8 +96,8 @@
   <h1>Marcador de Derrotas</h1>
 
   <form id="formConfig">
-    <label>Número de jugadores (3–6):</label>
-    <input type="number" id="numJugadores" min="3" max="6" required>
+    <label>Número de jugadores (2–6):</label>
+    <input type="number" id="numJugadores" min="2" max="6" required>
 
     <div id="nombresContainer"></div>
 
@@ -177,7 +177,7 @@ function renderMarcador(rondas){
     const div = document.createElement('div');
     div.className='jugador';
     div.innerHTML=`<span class="nombre">${jugador.nombre}</span>
-                   <span class="perdidas">Perdidas: <span id="p-${idx}">0</span></span>`;
+                   <span class="perdidas">  : <span id="p-${idx}">0</span></span>`;
     const cuadros = document.createElement('div');
     cuadros.className='cuadrados';
     for(let i=0;i<rondas;i++){
