@@ -1,0 +1,173 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marcador de Derrotas</title>
+<style>
+  :root{
+    --bg:#0b0d12;
+    --panel:#111826;
+    --accent:#22c55e;
+    --danger:#ef4444;
+    --text:#e6eefc;
+    --muted:#9db2d8;
+    --radius:10px;
+  }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:system-ui, sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:20px;
+  }
+  h1{color:var(--accent);text-align:center;}
+  form{
+    background:var(--panel);
+    padding:20px;
+    border-radius:var(--radius);
+    box-shadow:0 4px 15px rgba(0,0,0,.3);
+    max-width:400px;
+    width:100%;
+    margin-bottom:20px;
+  }
+  input,button,select{
+    width:100%;
+    padding:10px;
+    margin:5px 0;
+    border-radius:var(--radius);
+    border:none;
+    font-size:1rem;
+  }
+  button{
+    background:var(--accent);
+    color:white;
+    cursor:pointer;
+  }
+  button:hover{opacity:.8;}
+  .jugadores, .partidas{
+    background:var(--panel);
+    padding:15px;
+    border-radius:var(--radius);
+    margin-top:15px;
+    width:100%;
+    max-width:600px;
+  }
+  .jugador{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin:10px 0;
+    flex-wrap:wrap;
+  }
+  .nombre{
+    font-weight:bold;
+  }
+  .perdidas{
+    color:var(--muted);
+  }
+  .cuadrados{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+  }
+  .cuadro{
+    width:28px;
+    height:28px;
+    border:2px solid var(--muted);
+    border-radius:5px;
+    cursor:pointer;
+    transition:background .2s;
+  }
+  .cuadro.verde{background:var(--accent);}
+  .cuadro.rojo{background:var(--danger);}
+</style>
+</head>
+<body>
+  <h1>Marcador de Derrotas</h1>
+
+  <form id="formConfig">
+    <label>Número de jugadores (2–6):</label>
+    <input type="number" id="numJugadores" min="2" max="6" required>
+
+    <div id="nombresContainer"></div>
+
+    <label>Número de rondas:</label>
+    <input type="number" id="numRondas" min="1" required>
+
+    <button type="submit">Iniciar Partida</button>
+  </form>
+
+  <div id="marcador"></div>
+
+<script>
+const form = document.getElementById('formConfig');
+const nombresContainer = document.getElementById('nombresContainer');
+const marcadorDiv = document.getElementById('marcador');
+let jugadores = [];
+
+document.getElementById('numJugadores').addEventListener('input', e=>{
+  const n = parseInt(e.target.value)||0;
+  nombresContainer.innerHTML='';
+  for(let i=0;i<n;i++){
+    const input = document.createElement('input');
+    input.placeholder = 'Nombre del jugador '+(i+1);
+    input.required = true;
+    nombresContainer.appendChild(input);
+  }
+});
+
+form.addEventListener('submit', e=>{
+  e.preventDefault();
+  const n = parseInt(document.getElementById('numJugadores').value);
+  const rondas = parseInt(document.getElementById('numRondas').value);
+  const nombres = [...nombresContainer.querySelectorAll('input')].map(i=>i.value.trim());
+  if(nombres.length!==n) return alert('Introduce todos los nombres');
+  iniciarPartida(nombres,rondas);
+});
+
+function iniciarPartida(nombres,rondas){
+  form.style.display='none';
+  jugadores = nombres.map(n=>({nombre:n,perdidas:0}));
+  renderMarcador(rondas);
+}
+
+function renderMarcador(rondas){
+  marcadorDiv.innerHTML='';
+  jugadores.forEach((jugador,idx)=>{
+    const div = document.createElement('div');
+    div.className='jugador';
+    div.innerHTML=`<span class="nombre">${jugador.nombre}</span>
+                   <span class="perdidas">Perdidas: <span id="p-${idx}">0</span></span>`;
+    const cuadros = document.createElement('div');
+    cuadros.className='cuadrados';
+    for(let i=0;i<rondas;i++){
+      const c = document.createElement('div');
+      c.className='cuadro';
+      c.addEventListener('click',()=>marcarDerrota(idx,c,rondas));
+      cuadros.appendChild(c);
+    }
+    div.appendChild(cuadros);
+    marcadorDiv.appendChild(div);
+  });
+}
+
+function marcarDerrota(idx,cuadro,maxRondas){
+  const jugador = jugadores[idx];
+  if(cuadro.classList.contains('verde')||cuadro.classList.contains('rojo')) return;
+  jugador.perdidas++;
+  cuadro.classList.add('verde');
+  document.getElementById(`p-${idx}`).textContent = jugador.perdidas;
+  if(jugador.perdidas>=maxRondas){
+    // Cambiar todos los cuadros a rojo
+    const cuadros = cuadro.parentElement.querySelectorAll('.cuadro');
+    cuadros.forEach(c=>c.classList.remove('verde'));
+    cuadros.forEach(c=>c.classList.add('rojo'));
+  }
+}
+</script>
+</body>
+</html>
