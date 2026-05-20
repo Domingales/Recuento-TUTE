@@ -24,6 +24,20 @@
     padding:20px;
   }
   h1{color:var(--accent);text-align:center;}
+  .controles-partida{
+    display:none;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    width:100%;
+    max-width:400px;
+    margin:0 0 15px 0;
+  }
+  .controles-partida button{
+    margin:0;
+    font-weight:700;
+  }
+  .controles-partida .btn-reset{background:var(--danger);}
+  .controles-partida .btn-continuar{background:var(--accent);}
   form{
     background:var(--panel);
     padding:20px;
@@ -93,7 +107,12 @@
 </style>
 </head>
 <body>
-  <h1>Marcador.</h1>
+  <h1>Marcador de Derrotas</h1>
+
+  <div id="controlesPartida" class="controles-partida">
+    <button type="button" id="btnNuevaPartida" class="btn-reset">INICIAR PARTIDA</button>
+    <button type="button" id="btnContinuarPartida" class="btn-continuar">CONTINUAR</button>
+  </div>
 
   <form id="formConfig">
     <label>Número de jugadores (2–6):</label>
@@ -110,10 +129,15 @@
   <div id="marcador"></div>
 
 <script>
+const STORAGE_KEY = 'marcador_tute_estado_v1';
 const form = document.getElementById('formConfig');
 const nombresContainer = document.getElementById('nombresContainer');
 const marcadorDiv = document.getElementById('marcador');
+const controlesPartida = document.getElementById('controlesPartida');
+const btnNuevaPartida = document.getElementById('btnNuevaPartida');
+const btnContinuarPartida = document.getElementById('btnContinuarPartida');
 let jugadores = [];
+let rondasPartida = 0;
 
 // 🎵 Función para reproducir una melodía de 12 notas repetida 3 veces
 function reproducirMelodia() {
@@ -145,6 +169,71 @@ function reproducirMelodia() {
   }
 }
 
+
+function guardarEstado(){
+  if(!jugadores.length || !rondasPartida) return;
+  const estado = {
+    jugadores,
+    rondas: rondasPartida,
+    guardadoEn: new Date().toISOString()
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+}
+
+function cargarEstado(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const estado = JSON.parse(raw);
+    if(!estado || !Array.isArray(estado.jugadores) || !Number.isFinite(Number(estado.rondas))) return null;
+    if(estado.jugadores.length < 2 || estado.jugadores.length > 6) return null;
+    return estado;
+  }catch(err){
+    console.warn('No se pudo cargar el estado guardado:', err);
+    return null;
+  }
+}
+
+function mostrarControlesPartida(){
+  controlesPartida.style.display = jugadores.length ? 'grid' : 'none';
+}
+
+function restaurarPartidaGuardada(){
+  const estado = cargarEstado();
+  if(!estado) return;
+  form.style.display = 'none';
+  jugadores = estado.jugadores.map(j=>({
+    nombre: String(j.nombre || ''),
+    perdidas: Math.max(0, Number(j.perdidas) || 0),
+    finalizado: Boolean(j.finalizado)
+  })).filter(j=>j.nombre);
+  rondasPartida = Number(estado.rondas) || 0;
+  if(jugadores.length && rondasPartida){
+    renderMarcador(rondasPartida);
+    mostrarControlesPartida();
+  }
+}
+
+btnNuevaPartida.addEventListener('click', ()=>{
+  // Vuelve al flujo original de inicio: elegir nº de jugadores, nombres y rondas.
+  localStorage.removeItem(STORAGE_KEY);
+  jugadores = [];
+  rondasPartida = 0;
+  marcadorDiv.innerHTML = '';
+  nombresContainer.innerHTML = '';
+  form.reset();
+  form.style.display = 'block';
+  mostrarControlesPartida();
+  document.getElementById('numJugadores').focus();
+});
+
+btnContinuarPartida.addEventListener('click', ()=>{
+  if(!jugadores.length || !rondasPartida) return;
+  guardarEstado();
+});
+
+window.addEventListener('beforeunload', guardarEstado);
+
 document.getElementById('numJugadores').addEventListener('input', e=>{
   const n = parseInt(e.target.value)||0;
   nombresContainer.innerHTML='';
@@ -167,8 +256,11 @@ form.addEventListener('submit', e=>{
 
 function iniciarPartida(nombres,rondas){
   form.style.display='none';
+  rondasPartida = rondas;
   jugadores = nombres.map(n=>({nombre:n,perdidas:0,finalizado:false}));
-  renderMarcador(rondas);
+  renderMarcador(rondasPartida);
+  mostrarControlesPartida();
+  guardarEstado();
 }
 
 function renderMarcador(rondas){
@@ -177,12 +269,17 @@ function renderMarcador(rondas){
     const div = document.createElement('div');
     div.className='jugador';
     div.innerHTML=`<span class="nombre">${jugador.nombre}</span>
-                   <span class="perdidas">  : <span id="p-${idx}">0</span></span>`;
+                   <span class="perdidas">  : <span id="p-${idx}">${jugador.perdidas}</span></span>`;
     const cuadros = document.createElement('div');
     cuadros.className='cuadrados';
     for(let i=0;i<rondas;i++){
       const c = document.createElement('div');
       c.className='cuadro';
+      if(jugador.perdidas >= rondas){
+        c.classList.add('rojo');
+      } else if(i < jugador.perdidas){
+        c.classList.add('verde');
+      }
       c.addEventListener('click',()=>alternarCuadro(idx,c,rondas));
       cuadros.appendChild(c);
     }
@@ -204,6 +301,7 @@ function alternarCuadro(idx,cuadro,maxRondas){
     for(let i=0;i<jugador.perdidas;i++) cuadros[i].classList.add('verde');
     jugador.finalizado = false;
     document.getElementById(`p-${idx}`).textContent = jugador.perdidas;
+    guardarEstado();
     return;
   }
 
@@ -229,8 +327,10 @@ function alternarCuadro(idx,cuadro,maxRondas){
     cuadros.forEach(c=>c.classList.remove('rojo'));
     jugador.finalizado = false;
   }
+  guardarEstado();
 }
+
+restaurarPartidaGuardada();
 </script>
 </body>
 </html>
-
